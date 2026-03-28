@@ -17,6 +17,44 @@ const initSocket = require("./socket/socketEvents");
 const app = express();
 const server = http.createServer(app);
 
+
+// ─────────────────────────────────────────────
+// Middleware
+// ─────────────────────────────────────────────
+// app.use(
+//   cors({
+//     origin: process.env.CLIENT_URL || "http://localhost:5173",
+//     credentials: true,
+//   })
+// );
+
+// ─── Sabse pehle yeh add karo ───
+app.use((req, res, next) => {
+  console.log(`📨 ${req.method} ${req.url} | Origin: ${req.headers.origin}`);
+  next();
+});
+
+app.use(cors({
+  origin: function (origin, callback) {
+    const allowedOrigins = [
+      "http://localhost:5173",
+      process.env.FRONTEND_URL,  // ← Railway se aayega
+    ];
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS blocked: ${origin}`));
+    }
+  },
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true,
+}));
+
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
 // ─────────────────────────────────────────────
 // Socket.io Setup
 // ─────────────────────────────────────────────
@@ -41,36 +79,6 @@ const io = new Server(server, {
 // Initialize socket events
 initSocket(io);
 
-// ─────────────────────────────────────────────
-// Middleware
-// ─────────────────────────────────────────────
-// app.use(
-//   cors({
-//     origin: process.env.CLIENT_URL || "http://localhost:5173",
-//     credentials: true,
-//   })
-// );
-
-app.use(cors({
-  origin: function (origin, callback) {
-    const allowedOrigins = [
-      "http://localhost:5173",
-      process.env.FRONTEND_URL,  // ← Railway se aayega
-    ];
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error(`CORS blocked: ${origin}`));
-    }
-  },
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: true,
-}));
-
-
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
 // ─────────────────────────────────────────────
 // Routes
