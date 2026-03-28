@@ -11,19 +11,55 @@ const getOrCreateConversation = async (userId1, userId2) => {
   let conversation = await Conversation.findOne({
     participants: { $all: [userId1, userId2], $size: 2 },
   });
-
   if (!conversation) {
     conversation = await Conversation.create({
       participants: [userId1, userId2],
     });
   }
-
   return conversation;
 };
 
 // ─────────────────────────────────────────────
+// POST /api/chat/conversation
+// ─────────────────────────────────────────────
+router.post("/conversation", protect, async (req, res) => {
+  try {
+    const { toUserId } = req.body;
+    if (!toUserId) {
+      return res.status(400).json({ error: "toUserId is required" });
+    }
+    const friendship = await FriendRequest.findOne({
+      $or: [
+        { fromUser: req.user._id, toUser: toUserId },
+        { fromUser: toUserId, toUser: req.user._id },
+      ],
+      status: "accepted",
+    });
+    if (!friendship) {
+      return res.status(403).json({ error: "You must be friends to start a chat" });
+    }
+    const conversation = await getOrCreateConversation(req.user._id, toUserId);
+    const populated = await Conversation.findById(conversation._id)
+      .populate("participants", "fullName username profilePicture isOnline lastSeen");
+    const otherUser = populated.participants.find(
+      (p) => p._id.toString() !== req.user._id.toString()
+    );
+    res.json({
+      success: true,
+      conversation: {
+        _id: populated._id,
+        otherUser,
+        lastMessage: populated.lastMessage,
+        lastMessageAt: populated.lastMessageAt,
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ─────────────────────────────────────────────
 // GET /api/chat/conversations
-// Get all conversations (chat list) for current user
 // ─────────────────────────────────────────────
 router.get("/conversations", protect, async (req, res) => {
   try {
@@ -34,7 +70,6 @@ router.get("/conversations", protect, async (req, res) => {
       .populate("lastMessage")
       .sort({ lastMessageAt: -1 });
 
-    // Format: remove self from participants
     const formatted = conversations.map((conv) => {
       const otherUser = conv.participants.find(
         (p) => p._id.toString() !== req.user._id.toString()
@@ -55,14 +90,12 @@ router.get("/conversations", protect, async (req, res) => {
 
 // ─────────────────────────────────────────────
 // GET /api/chat/messages/:userId
-// Get messages with a specific user
 // ─────────────────────────────────────────────
 router.get("/messages/:userId", protect, async (req, res) => {
   try {
     const { userId } = req.params;
     const { page = 1, limit = 50 } = req.query;
 
-    // Check friendship
     const friendship = await FriendRequest.findOne({
       $or: [
         { fromUser: req.user._id, toUser: userId },
@@ -70,12 +103,10 @@ router.get("/messages/:userId", protect, async (req, res) => {
       ],
       status: "accepted",
     });
-
     if (!friendship) {
       return res.status(403).json({ error: "You must be friends to view messages" });
     }
 
-    // Check block
     const isBlocked = await BlockedUser.findOne({
       $or: [
         { blockedBy: req.user._id, blockedUser: userId },
@@ -97,7 +128,6 @@ router.get("/messages/:userId", protect, async (req, res) => {
       .skip((page - 1) * limit)
       .limit(Number(limit));
 
-    // Mark messages as read
     await Message.updateMany(
       {
         conversationId: conversation._id,
@@ -109,7 +139,7 @@ router.get("/messages/:userId", protect, async (req, res) => {
 
     res.json({
       success: true,
-      messages: messages.reverse(), // oldest first
+      messages: messages.reverse(),
       conversationId: conversation._id,
     });
   } catch (error) {
@@ -119,8 +149,6 @@ router.get("/messages/:userId", protect, async (req, res) => {
 
 // ─────────────────────────────────────────────
 // POST /api/chat/send
-// Send a message
-// Note: encryptedContent is already encrypted on client side (E2E)
 // ─────────────────────────────────────────────
 router.post("/send", protect, async (req, res) => {
   try {
@@ -130,7 +158,6 @@ router.post("/send", protect, async (req, res) => {
       return res.status(400).json({ error: "Recipient and message are required" });
     }
 
-    // Check friendship
     const friendship = await FriendRequest.findOne({
       $or: [
         { fromUser: req.user._id, toUser: toUserId },
@@ -138,12 +165,10 @@ router.post("/send", protect, async (req, res) => {
       ],
       status: "accepted",
     });
-
     if (!friendship) {
       return res.status(403).json({ error: "You must be friends to send messages" });
     }
 
-    // Check block
     const isBlocked = await BlockedUser.findOne({
       $or: [
         { blockedBy: req.user._id, blockedUser: toUserId },
@@ -163,17 +188,14 @@ router.post("/send", protect, async (req, res) => {
       readBy: [req.user._id],
     });
 
-    // Update conversation lastMessage
     conversation.lastMessage = message._id;
     conversation.lastMessageAt = new Date();
     await conversation.save();
 
     const populatedMessage = await Message.findById(message._id).populate(
-      "sender",
-      "fullName username profilePicture"
+      "sender", "fullName username profilePicture"
     );
 
-    // Real-time: emit to receiver
     const socketMap = global.socketUserMap || {};
     const receiverSocketId = socketMap[toUserId];
     if (receiverSocketId && global.io) {
@@ -191,12 +213,10 @@ router.post("/send", protect, async (req, res) => {
 
 // ─────────────────────────────────────────────
 // DELETE /api/chat/message/:messageId
-// Delete a message (soft delete)
 // ─────────────────────────────────────────────
 router.delete("/message/:messageId", protect, async (req, res) => {
   try {
     const message = await Message.findById(req.params.messageId);
-
     if (!message) return res.status(404).json({ error: "Message not found" });
 
     if (message.sender.toString() !== req.user._id.toString()) {
@@ -208,7 +228,6 @@ router.delete("/message/:messageId", protect, async (req, res) => {
     message.deletedAt = new Date();
     await message.save();
 
-    // Notify other user via socket
     const conversation = await Conversation.findById(message.conversationId);
     const otherUserId = conversation.participants.find(
       (p) => p.toString() !== req.user._id.toString()
