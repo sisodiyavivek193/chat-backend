@@ -53,14 +53,10 @@ initSocket(io);
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Allowed origins list
     const allowedOrigins = [
       "http://localhost:5173",
-      "http://localhost:3000",
-      process.env.FRONTEND_URL, // Railway me set karo
+      process.env.FRONTEND_URL,  // ← Railway se aayega
     ];
-
-    // Agar origin allowed list me hai ya origin nahi hai (Postman etc.)
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
