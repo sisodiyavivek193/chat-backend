@@ -1,0 +1,87 @@
+const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
+const mongoose = require("mongoose");
+const cors = require("cors");
+require("dotenv").config();
+
+// Routes
+const authRoutes = require("./routes/auth");
+const userRoutes = require("./routes/users");
+const friendRoutes = require("./routes/friends");
+const chatRoutes = require("./routes/chat");
+
+// Socket
+const initSocket = require("./socket/socketEvents");
+
+const app = express();
+const server = http.createServer(app);
+
+// ─────────────────────────────────────────────
+// Socket.io Setup
+// ─────────────────────────────────────────────
+const io = new Server(server, {
+  cors: {
+    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
+});
+
+// Initialize socket events
+initSocket(io);
+
+// ─────────────────────────────────────────────
+// Middleware
+// ─────────────────────────────────────────────
+app.use(
+  cors({
+    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    credentials: true,
+  })
+);
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// ─────────────────────────────────────────────
+// Routes
+// ─────────────────────────────────────────────
+app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/friends", friendRoutes);
+app.use("/api/chat", chatRoutes);
+
+// Health check
+app.get("/", (req, res) => {
+  res.json({ message: "ChatApp API is running 🚀", status: "OK" });
+});
+
+// 404 Handler
+app.use((req, res) => {
+  res.status(404).json({ error: "Route not found" });
+});
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ error: "Something went wrong!", message: err.message });
+});
+
+// ─────────────────────────────────────────────
+// MongoDB Connection + Server Start
+// ─────────────────────────────────────────────
+const PORT = process.env.PORT || 5000;
+
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => {
+    console.log("✅ MongoDB Atlas connected successfully");
+    server.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`📡 Socket.io ready`);
+    });
+  })
+  .catch((err) => {
+    console.error("❌ MongoDB connection error:", err.message);
+    process.exit(1);
+  });
