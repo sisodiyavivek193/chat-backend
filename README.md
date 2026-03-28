@@ -131,7 +131,7 @@ node add-user.js
 ```javascript
 import { io } from "socket.io-client";
 
-const socket = io("http://localhost:5000", {
+const socket = io("https://chat-backend-production-87bd.up.railway.app", {
   auth: { token: localStorage.getItem("token") }
 });
 ```
