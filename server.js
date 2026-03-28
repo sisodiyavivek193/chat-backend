@@ -89,8 +89,13 @@ app.use("/api/friends", friendRoutes);
 app.use("/api/chat", chatRoutes);
 
 // Health check
-app.get("/", (req, res) => {
-  res.json({ message: "ChatApp API is running 🚀", status: "OK" });
+// Temporary debug route - CORS check karne ke liye
+app.get("/debug-cors", (req, res) => {
+  res.json({
+    FRONTEND_URL: process.env.FRONTEND_URL,
+    NODE_ENV: process.env.NODE_ENV,
+    message: "CORS Debug Info"
+  });
 });
 
 // 404 Handler
