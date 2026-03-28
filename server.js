@@ -33,23 +33,28 @@ app.use((req, res, next) => {
   console.log(`📨 ${req.method} ${req.url} | Origin: ${req.headers.origin}`);
   next();
 });
-
+// Sabse simple fix - sabko allow karo temporarily
 app.use(cors({
-  origin: function (origin, callback) {
-    const allowedOrigins = [
-      "http://localhost:5173",
-      process.env.FRONTEND_URL,  // ← Railway se aayega
-    ];
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error(`CORS blocked: ${origin}`));
-    }
-  },
+  origin: "*",
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: true,
 }));
+// app.use(cors({
+//   origin: function (origin, callback) {
+//     const allowedOrigins = [
+//       "http://localhost:5173",
+//       process.env.FRONTEND_URL,  // ← Railway se aayega
+//     ];
+//     if (!origin || allowedOrigins.includes(origin)) {
+//       callback(null, true);
+//     } else {
+//       callback(new Error(`CORS blocked: ${origin}`));
+//     }
+//   },
+//   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+//   allowedHeaders: ["Content-Type", "Authorization"],
+//   credentials: true,
+// }));
 
 
 app.use(express.json());
