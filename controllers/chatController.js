@@ -200,11 +200,21 @@ const sendMessage = async (req, res) => {
       "fullName username profilePicture"
     );
 
-    // Real-time: emit to receiver
     const socketMap = global.socketUserMap || {};
+
+    // ✅ Receiver ko emit karo
     const receiverSocketId = socketMap[toUserId];
     if (receiverSocketId && global.io) {
       global.io.to(receiverSocketId).emit("newMessage", {
+        message: populatedMessage,
+        conversationId: conversation._id,
+      });
+    }
+
+    // ✅ Sender ko bhi emit karo — chatlist real-time update ke liye
+    const senderSocketId = socketMap[req.user._id.toString()];
+    if (senderSocketId && global.io) {
+      global.io.to(senderSocketId).emit("newMessage", {
         message: populatedMessage,
         conversationId: conversation._id,
       });
