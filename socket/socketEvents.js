@@ -43,6 +43,7 @@ const initSocket = (io) => {
     // ─────────────────────────────────────────────
     // User joins their personal room
     socket.join(userId);
+    console.log(`🏠 User ${socket.user.username} joined room: ${userId}`)
     // ─────────────────────────────────────────────
 
     // ─────────────────────────────────────────────
