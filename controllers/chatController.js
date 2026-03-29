@@ -200,24 +200,22 @@ const sendMessage = async (req, res) => {
       "fullName username profilePicture"
     );
 
-    const socketMap = global.socketUserMap || {};
-
-    // ✅ Receiver ko emit karo
-    const receiverSocketId = socketMap[toUserId];
-    if (receiverSocketId && global.io) {
-      global.io.to(receiverSocketId).emit("newMessage", {
+    if (global.io) {
+      // ✅ Room-based emit — socket.join(userId) pe depend karta hai
+      // socketMap pe depend nahi — server restart safe hai
+      global.io.to(toUserId.toString()).emit("newMessage", {
         message: populatedMessage,
         conversationId: conversation._id,
       });
-    }
 
-    // ✅ Sender ko bhi emit karo — chatlist real-time update ke liye
-    const senderSocketId = socketMap[req.user._id.toString()];
-    if (senderSocketId && global.io) {
-      global.io.to(senderSocketId).emit("newMessage", {
-        message: populatedMessage,
-        conversationId: conversation._id,
-      });
+      // ✅ Sender ko bhi emit karo (agar alag device/tab pe ho)
+      const senderId = req.user._id.toString();
+      if (senderId !== toUserId.toString()) {
+        global.io.to(senderId).emit("newMessage", {
+          message: populatedMessage,
+          conversationId: conversation._id,
+        });
+      }
     }
 
     res.status(201).json({ success: true, message: populatedMessage });
