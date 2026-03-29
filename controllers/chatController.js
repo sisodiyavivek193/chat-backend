@@ -155,6 +155,8 @@ const getMessages = async (req, res) => {
 // ─────────────────────────────────────────────
 const sendMessage = async (req, res) => {
   try {
+    console.log('📨 sendMessage called, toUserId:', req.body.toUserId)  // ← YEH ADD KARO
+
     const { toUserId, encryptedContent } = req.body;
 
     if (!toUserId || !encryptedContent) {
