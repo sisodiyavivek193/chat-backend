@@ -155,8 +155,6 @@ const getMessages = async (req, res) => {
 // ─────────────────────────────────────────────
 const sendMessage = async (req, res) => {
   try {
-    console.log('📨 sendMessage called, toUserId:', req.body.toUserId)  // ← YEH ADD KARO
-
     const { toUserId, encryptedContent } = req.body;
 
     if (!toUserId || !encryptedContent) {
@@ -202,15 +200,16 @@ const sendMessage = async (req, res) => {
       "fullName username profilePicture"
     );
 
+    console.log('🌐 global.io exists:', !!global.io)
+    console.log('📡 Emitting to room:', toUserId.toString())
+
     if (global.io) {
-      // ✅ Room-based emit — socket.join(userId) pe depend karta hai
-      // socketMap pe depend nahi — server restart safe hai
+      // Room-based emit — socket.join(userId) use karta hai, socketMap nahi
       global.io.to(toUserId.toString()).emit("newMessage", {
         message: populatedMessage,
         conversationId: conversation._id,
       });
 
-      // ✅ Sender ko bhi emit karo (agar alag device/tab pe ho)
       const senderId = req.user._id.toString();
       if (senderId !== toUserId.toString()) {
         global.io.to(senderId).emit("newMessage", {
@@ -218,6 +217,9 @@ const sendMessage = async (req, res) => {
           conversationId: conversation._id,
         });
       }
+      console.log('✅ Emit done!')
+    } else {
+      console.log('❌ global.io is NULL — socket not initialized!')
     }
 
     res.status(201).json({ success: true, message: populatedMessage });
