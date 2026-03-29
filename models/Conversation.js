@@ -17,6 +17,7 @@ const conversationSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    clearedBy: { type: Map, of: Date, default: {} },
   },
   { timestamps: true }
 );
